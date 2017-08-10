@@ -8,6 +8,8 @@ namespace DigiBot_Tutorial.Dialogs
     [Serializable]
     public class RootDialog : IDialog<object>
     {
+        protected int count = 1;
+
         public Task StartAsync(IDialogContext context)
         {
             context.Wait(MessageReceivedAsync);
@@ -15,17 +17,40 @@ namespace DigiBot_Tutorial.Dialogs
             return Task.CompletedTask;
         }
 
-        private async Task MessageReceivedAsync(IDialogContext context, IAwaitable<object> result)
+        private async Task MessageReceivedAsync(IDialogContext context, IAwaitable<IMessageActivity> activity)
         {
-            var activity = await result as Activity;
+            var message = await activity;
 
-            // calculate something for us to return
-            int length = (activity.Text ?? string.Empty).Length;
+            if (message.Text == "reset")
+            {
+                PromptDialog.Confirm(
+                    context,
+                    this.ResumeAfterResetDialog,
+                    "Are you sure you want to reset the count?",
+                    "Sorry, I didn't get that.",
+                    promptStyle: PromptStyle.None);
+            }
+            else
+            {
+                await context.PostAsync($"{this.count++}: You said {message.Text}");
+                context.Wait(this.MessageReceivedAsync);
+            }
+        }
 
-            // return our reply to the user
-            await context.PostAsync($"You sent {activity.Text} which was {length} characters");
+        private async Task ResumeAfterResetDialog(IDialogContext context, IAwaitable<bool> result)
+        {
+            var confirm = await result;
+            if (confirm)
+            {
+                this.count = 1;
+                await context.PostAsync("Reset count.");
+            }
+            else
+            {
+                await context.PostAsync("Did not reset count.");
+            }
 
-            context.Wait(MessageReceivedAsync);
+            context.Wait(this.MessageReceivedAsync);
         }
     }
 }
