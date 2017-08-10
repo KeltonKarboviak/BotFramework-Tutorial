@@ -8,11 +8,13 @@ namespace DigiBot_Tutorial.Dialogs
     [Serializable]
     public class RootDialog : IDialog<object>
     {
-        protected int count = 1;
+        private string name;
+        private long age;
 
         public Task StartAsync(IDialogContext context)
         {
-            context.Wait(MessageReceivedAsync);
+            // Wait until the first message is received from the conversation and call MessageReceivedAsync to process that message
+            context.Wait(this.MessageReceivedAsync);
 
             return Task.CompletedTask;
         }
@@ -21,36 +23,46 @@ namespace DigiBot_Tutorial.Dialogs
         {
             var message = await activity;
 
-            if (message.Text == "reset")
+            await this.SendWelcomeMessageAsync(context);
+        }
+
+        private async Task SendWelcomeMessageAsync(IDialogContext context)
+        {
+            await context.PostAsync("Hi, I'm the Basic Multi Dialog Bot. Let's get started.");
+
+            context.Call(new NameDialog(), this.ResumeAfterNameDialog);
+        }
+
+        private async Task ResumeAfterNameDialog(IDialogContext context, IAwaitable<string> result)
+        {
+            try
             {
-                PromptDialog.Confirm(
-                    context,
-                    this.ResumeAfterResetDialog,
-                    "Are you sure you want to reset the count?",
-                    "Sorry, I didn't get that.",
-                    promptStyle: PromptStyle.None);
+                this.name = await result;
+                context.Call(new AgeDialog(this.name), this.ResumeAfterAgeDialog);
             }
-            else
+            catch (TooManyAttemptsException ex)
             {
-                await context.PostAsync($"{this.count++}: You said {message.Text}");
-                context.Wait(this.MessageReceivedAsync);
+                await context.PostAsync("I'm sorry, I'm having issues understanding you. Let's try again.");
+
+                await this.SendWelcomeMessageAsync(context);
             }
         }
 
-        private async Task ResumeAfterResetDialog(IDialogContext context, IAwaitable<bool> result)
+        private async Task ResumeAfterAgeDialog(IDialogContext context, IAwaitable<long> @result)
         {
-            var confirm = await result;
-            if (confirm)
+            try
             {
-                this.count = 1;
-                await context.PostAsync("Reset count.");
+                this.age = await result;
+                await context.PostAsync($"Your name is {this.name} and your age is {this.age}.");
             }
-            else
+            catch (TooManyAttemptsException)
             {
-                await context.PostAsync("Did not reset count.");
+                await context.PostAsync("I'm sorry, I'm having issues understanding you. Let's try again.");
             }
-
-            context.Wait(this.MessageReceivedAsync);
+            finally
+            {
+                await this.SendWelcomeMessageAsync(context);
+            }
         }
     }
 }
