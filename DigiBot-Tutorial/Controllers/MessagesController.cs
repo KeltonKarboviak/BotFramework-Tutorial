@@ -18,7 +18,8 @@ namespace DigiBot_Tutorial
         {
             if (activity.Type == ActivityTypes.Message)
             {
-                await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
+                //await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
+                await Conversation.SendAsync(activity, () => Dialogs.RootDialog.new_dialog);
             }
             else
             {
